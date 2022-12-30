@@ -1,15 +1,22 @@
 #include <Arduino.h>
-
-//#include <neotimer.h>
 #include "./neotimer.h"
-//#include <soc/rtc.h>
 #include <esp_timer.h>
 #include "encoder.h"
 #include <SerialConfigCommand.h>
 
 Neotimer print_timer = Neotimer(1000);
+Neotimer update_timer = Neotimer(100);
 
 SerialConfigCommand scc; //Define an instance of SerialConfigCommand
+
+#include <driver/rmt.h>
+#include <driver/periph_ctrl.h>
+#define SUPPORT_ESP32_RMT
+#include "FastAccelStepper.h"
+FastAccelStepperEngine engine = FastAccelStepperEngine();
+FastAccelStepper *stepper = NULL;
+
+//  Configuration
 
 int64_t input_counter = 0;
 int motor_steps = 200;
@@ -32,17 +39,6 @@ int led = 25;
 //int accel = 2000;
 int accel = 1000000;
 
-#include <driver/rmt.h>
-
-#include <driver/periph_ctrl.h>
-#define SUPPORT_ESP32_RMT
-
-#include "FastAccelStepper.h"
-FastAccelStepperEngine engine = FastAccelStepperEngine();
-FastAccelStepper *stepper = NULL;
-
-
-//#define dirPinStepper 25
 #define dirPinStepper 12
 #define enablePinStepper 26
 #define stepPinStepper 13
@@ -56,9 +52,17 @@ void processMotion()    //this is the interrupt routine for the floating point d
   {
     
     //input_counter++;                                                           // increments a counter for the number of spindle pulses received
+
+
+    // For lathe ELS
+
     //calculated_stepper_pulses=round(factor*input_counter);                     // figure steps to go
     //calculated_stepper_pulses = factor * input_counter;
+
+    // For Hob
     calculated_stepper_pulses = factor * encoder.pulse_counter;
+
+    // Move
     if((calculated_stepper_pulses>stepper->getCurrentPosition())) 
        {
         stepper->moveTo(calculated_stepper_pulses);
@@ -66,6 +70,8 @@ void processMotion()    //this is the interrupt routine for the floating point d
    }
 
 
+
+// time a function to see how long it takes to run
 void measure_important_function(void) {
     const unsigned MEASUREMENTS = 150;
     uint64_t start = esp_timer_get_time();
@@ -121,7 +127,6 @@ void response(){
     Serial.println(scc.getCmdS());
   }
   factor = spindle_steps_per_rev*1.0/(gear_tooth_number*hob_encoder_resolution);
-
 }
 
 void setup() {
@@ -130,13 +135,18 @@ void setup() {
   Serial.println("Goal 1: benchmark how long it takes to handle interrupt");
   Serial.println("Goal 2: figure out how to monitor CPU usage better");
 
+  // for benchmark
   esp_err_t e = esp_timer_init();
-  
   last_time = esp_timer_get_time();
+
+
+  // Setup Encoder
+
   init_encoder();
   engine.init();
   //startVenc();
 
+  // Setup stepper
   stepper = engine.stepperConnectToPin(stepPinStepper);
   if (stepper) {
     stepper->setDirectionPin(dirPinStepper);
@@ -144,15 +154,11 @@ void setup() {
     //stepper->setAutoEnable(true);
 
     // If auto enable/disable need delays, just add (one or both):
-    stepper->setDelayToEnable(50);
-    // stepper->setDelayToDisable(1000);
-
-    // microsteps 1600
+    stepper->setDelayToEnable(15);
 
     stepper->setSpeedInHz(stepper_speed);  // the parameter is us/step !!!
     stepper->setAcceleration(accel);
     stepper->applySpeedAcceleration();
-    //stepper->move(1000);
     scc.set(200, response); 
   }
 
@@ -163,6 +169,9 @@ void setup() {
 void loop() {
   print_status();
   check_lag();
-  scc.update();
+
+  if(update_timer.repeat()){
+    scc.update();
+  }
   
 }
