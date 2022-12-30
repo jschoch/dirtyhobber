@@ -1,34 +1,28 @@
-# Gear Hobbing Controller
+# Bare Bones ESP32 Gear Hobbing Controller
 
-This controller is designed for an esp32 devkit v4 board (az_delivery) using an optical encoder and an external stepper or servo controller.
+This quick and dirty controller is designed for an esp32 devkit v4 board (az_delivery) using an optical encoder and an external stepper or servo controller.
 
 This requires minium of 4 pins for step, dir, encoder_a, encoder_b signals.  This is the simplest and most basic controller and it may have bugs.  Use at your own risk.  PR's and questions (via issues) welcome.
+
+
+![16_TPI_tap_makes_aluminum_gears](https://user-images.githubusercontent.com/20271/210111404-7da5b2fa-a23e-47b4-830e-201d5fcad23b.gif)
 
 # Configuration: 
 
 The `main.cpp` file contains most of the configuration
-
+The items below need to be updated in the file.
 ```c++
-int64_t input_counter = 0;
 int motor_steps = 200;
 int microstepping = 8;
-int reduction = 40;
-int spindle_steps_per_rev = motor_steps * reduction * microstepping;
-int gear_tooth_number = 78;
+int reduction = 40;  // This is the indexer gear reduction 
 int hob_encoder_resolution = 2400;
-double factor = spindle_steps_per_rev*1.0/(gear_tooth_number*hob_encoder_resolution);     
-int step_queue = 0;
-bool dir = 1;
-double calculated_stepper_pulses = 0;
-int delivered_stepper_pulses = 0;
-uint64_t last_time = 0;
-uint64_t  this_time = 0;
-uint64_t run_time = 0;
-uint64_t run_times[10] = {};
-uint64_t lag = 0;
-int led = 25;
-//int accel = 2000;
-int accel = 1000000;
+bool dir = 1; // this controls the motor direction
+int led = 25; // the LED pin 
+
+#define dirPinStepper 12
+#define enablePinStepper 26
+#define stepPinStepper 13
+int stepper_speed = 150000;
 ```
 
 Encoder.cpp requires the A and B encoder pins as well as the pulses per revolution.  PPR is the 3rd argument of the initializer for the Encoder class.
