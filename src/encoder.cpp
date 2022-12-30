@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include "./neotimer.h"
 #include "encoder.h"
-//#include "motion.h"
+
 
 volatile int vEncSpeed = 0;
 volatile int64_t spindlePos = 0;
